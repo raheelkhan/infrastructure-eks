@@ -1,0 +1,47 @@
+name: 'Terraform Reusable CI workflow'
+
+on:
+  workflow_call:
+
+jobs:
+  Validate-Terraform: 
+    name: 'Validate and Scan Terraform Configuration'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.8.1"
+    
+    - name: Terraform Format
+      run: terraform fmt --list=true -recursive -check
+
+    - name: Terraform Version
+      run: terraform version
+    
+    - name: Terraform Validate Stage
+      working-directory: ./stage  
+      run: |
+        terraform init -backend=false
+        terraform validate
+
+    - name: Terraform Validate Prod
+      working-directory: ./prod  
+      run: |
+        terraform init -backend=false
+        terraform validate
+    
+    - name: Run Trivy vulnerability scanner in IaC mode
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        format: table
+        exit-code: 0
+        severity: CRITICAL

@@ -1,0 +1,38 @@
+name: 'Terraform CD'
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  Run-CI:
+    uses: ./.github/workflows/terraform-reusable-ci.yaml
+    
+  Run-CD-Stage:
+    needs: Run-CI
+    uses: ./.github/workflows/terraform-reusable-cd.yaml
+    with:
+      environment: stage
+    secrets:
+      bucket: ${{ secrets.STAGE_BUCKET }}
+      key: ${{ secrets.STAGE_KEY }}
+      region: ${{ secrets.STAGE_REGION }}
+      aws_iam_role_arn: ${{ secrets.STAGE_AWS_IAM_ROLE_ARN }}
+
+  Run-CD-Prod:
+    needs: Run-CD-Stage
+    uses: ./.github/workflows/terraform-reusable-cd.yaml
+    with:
+      environment: prod
+    secrets:
+      bucket: ${{ secrets.PROD_BUCKET }}
+      key: ${{ secrets.PROD_KEY }}
+      region: ${{ secrets.PROD_REGION }}
+      aws_iam_role_arn: ${{ secrets.PROD_AWS_IAM_ROLE_ARN }}
+    

@@ -1,0 +1,17 @@
+name: 'Terraform CI'
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - master
+
+jobs:
+  Run-CI:
+    uses: ./.github/workflows/terraform-reusable-ci.yaml
+    

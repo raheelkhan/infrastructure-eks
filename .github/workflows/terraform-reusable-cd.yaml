@@ -1,0 +1,83 @@
+name: 'Terraform Reusable CD workflow'
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      bucket:
+        required: true
+      key:
+        required: true
+      region:
+        required: true
+      aws_iam_role_arn:
+        required: true
+
+jobs:
+  Plan-And-Apply-Terraform:
+    name: 'Terraform Plan & Apply on ${{ inputs.environment }}'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.1"
+      
+      -  name: Configure AWS
+         uses: aws-actions/configure-aws-credentials@v4
+         with:
+            role-to-assume: ${{ secrets.aws_iam_role_arn }}
+            role-session-name: GitHub_to_AWS_via_FederatedOIDC
+            aws-region: ${{ secrets.region }}
+      
+      - name: Terraform Init
+        working-directory: ${{ inputs.environment }}
+        run: |
+         terraform init -backend-config="bucket=${{ secrets.bucket }}" \
+         -backend-config="key=${{ secrets.key }}" \
+         -backend-config="region=${{ secrets.region }}"
+
+      - name: Terraform Plan
+        id: terraform-plan
+        working-directory: ${{ inputs.environment }}
+        run: |
+          terraform plan -var="github_oidc_role_arn=${{ secrets.aws_iam_role_arn }}" \
+          -no-color -input=false -out=tfplan
+          terraform show tfplan > plan.out
+      
+      - name: Upload Terraform Plan Artifact
+        id: upload-terraform-plan-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "Terrafom Plan Out - ${{ inputs.environment }}"
+          path: ${{ inputs.environment }}/plan.out
+      
+      - name: Manual Approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: raheelkhan
+          minimum-approvals: 1
+          issue-title: "Deploying ${{ github.ref }} to ${{ inputs.environment }}"
+          issue-body: "Please approve or deny the deployment of version ${{ github.ref }}, You can review the Terraform plan at [here](${{ steps.upload-terraform-plan-artifact.outputs.artifact-url }})"
+          exclude-workflow-initiator-as-approver: false
+      
+      - name: Terraform Apply
+        working-directory: ${{ inputs.environment }}
+        run: |
+          terraform apply -auto-approve -input=false tfplan
+
+      - name: Terraform Output
+        working-directory: ${{ inputs.environment }}
+        run: |
+          terraform output
