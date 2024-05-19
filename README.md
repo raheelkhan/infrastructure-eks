@@ -79,7 +79,7 @@ Before running the deployment pipeline the Github repo must meet the below requi
     - STAGE_KEY
     - STAGE_REGION
 
-### Decision Decison 
+### Design Decison 
 The decision of not using Github environments here is intentional. As you will see the `terraform-reusable-cd.yaml` file that I have configured manual approvals when terraform generates the plan. A Github Issue will be created containing the link of the artficat (A zip file containing terrafrom plan output). Once the Issue is closed based on certain predefined text `approve`, `approved`, `lgtm` and `yes` then only the apply step will run. This type of flexibilty was not achievable in Github environments. As I was only able to do the required approval on Job level.
 
 ### Continuous Integration
